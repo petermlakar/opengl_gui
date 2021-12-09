@@ -27,7 +27,7 @@ and GLFW instances. This is done by initializing the ``` Gui``` object from the
 components module
 
 ```python
-from glfw import poll_events, swap_buffers, window_should_close
+from glfw import swap_buffers
 
 from opengl_gui.gui_components import *
 from opengl_gui.gui_helper     import *
@@ -46,7 +46,7 @@ The simplest scene is just a basic container. Indeed it is recomended to start w
 the ``` Container ``` component.
 
 ```python
-from glfw import poll_events, swap_buffers, window_should_close
+from glfw import swap_buffers
 
 from opengl_gui.gui_components import *
 from opengl_gui.gui_helper     import *
@@ -69,7 +69,7 @@ no parent component). This method computes the final position and scale of <b>th
 Let us add a second component that depends on the ``` simple_scene ``` component.
 
 ```python
-from glfw import poll_events, swap_buffers, window_should_close
+from glfw import swap_buffers
 
 from opengl_gui.gui_components import *
 from opengl_gui.gui_helper     import *
@@ -91,5 +91,38 @@ depends on the former. This entails that the position argument passed to its con
 computes the <b>position in relative coordinates to the parent</b>. This means that a
 position of ``` [0.0, 0.0] ``` in ``` dependent_component ``` corresponds to it being
 positioned with its left top corrent aligned with ``` simple_scene ``` top left corner.
-A position of ``` [1.0, 1.0] ``` corresponds to bottom right corner alignment.
+A position of ``` [1.0, 1.0] ``` corresponds to bottom right corner alignment. The scale
+always remains <b>relative with respect to the main window size</b>.
 
+## Rendering 
+
+After a scene is constructed we can render it
+```python
+from glfw import swap_buffers
+
+from opengl_gui.gui_components import *
+from opengl_gui.gui_helper     import *
+
+gui = Gui(fullscreen = FULLSCREEN, width = WIDTH, height = HEIGHT)
+
+simple_scene = Container(position = [0.0, 0.0], scale = [1.0, 1.0], colour = [1.0, 1.0, 1.0, 1.0], id = "simple_container")
+dependent_component = Container(position = [0.5, 0.5], scale = [0.5, 0.5], colour = [1.0, 0.0, 0.0, 1.0], id = "simple_container")
+
+dependent_component.depends_on(element = simple_scene)
+
+simple_scene.update_geometry(parent = None)
+
+glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+
+simple_scene.execute(parent = None, gui = gui, custom_data = None)
+        
+swap_buffers(gui.window)
+```
+
+The OpenGL function ``` glClear ``` clears the depth and color buffers before rendering
+is executed. If this command would be missing consequtive renders would overlay on top
+of each other. The call to the method ``` execute ``` logically updates and renders the
+the components in a hierarchical manner. Multiple dependent components added to the same
+parent component are <b>renderer in the order they were added</b>.
+
+## Main loop
