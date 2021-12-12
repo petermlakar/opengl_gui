@@ -960,7 +960,8 @@ class DisplayTexture(Element):
         position: list,
         offset:   list = None,  
         scale:    list,
-        depth:    float = None, 
+        depth:    float = None,
+        aspect:   float = 1920.0/1080.0,
         colour:   list  = None, 
         animations: dict = None, 
         shader: str = "loading_shader",
@@ -981,6 +982,7 @@ class DisplayTexture(Element):
 
         self.stage_time = 0
         self.get_texture = get_texture
+        self.aspect = aspect
 
         assert(self.get_texture is not None)
 
@@ -1000,7 +1002,7 @@ class DisplayTexture(Element):
         shader_program.uniform_functions["stage"](0)
         shader_program.uniform_functions["depth"](self.properties[0])
         shader_program.uniform_functions["transform"](self.transform)
-        shader_program.uniform_functions["animation_details"]([time_start, gui.window_aspect_ratio, 0.0, self.stage_transition_duration])
+        shader_program.uniform_functions["animation_details"]([time_start, self.aspect, 0.0, self.stage_transition_duration])
 
         gui.draw()
 
@@ -1017,7 +1019,7 @@ class DisplayTexture(Element):
         shader_program.uniform_functions["stage"](1)
         shader_program.uniform_functions["depth"](self.properties[0])
         shader_program.uniform_functions["transform"](self.transform)
-        shader_program.uniform_functions["animation_details"]([time_start, gui.window_aspect_ratio, time_stage_0, self.stage_transition_duration])
+        shader_program.uniform_functions["animation_details"]([time_start, self.aspect, time_stage_0, self.stage_transition_duration])
 
         glBindTexture(GL_TEXTURE_2D, self.texture)
 
