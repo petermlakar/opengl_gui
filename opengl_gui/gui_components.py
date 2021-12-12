@@ -987,6 +987,7 @@ class DisplayTexture(Element):
         self.aspect = aspect
         self.stage_time = 0
         self.get_texture = get_texture
+        self.aspect = aspect
 
         assert(self.get_texture is not None)
 
