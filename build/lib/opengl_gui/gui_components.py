@@ -245,6 +245,14 @@ class Element():
 
     def element_update(self, *, parent, gui: Gui, custom_data) -> None:
 
+        if self.id == "PlD":
+            if len(self.command_animations) > 0:
+                
+                print(f"Num animations: {len(self.command_animations)}")
+                for i, anims in enumerate(self.command_animations):
+                    print(f"{i}: {anims}")
+                print()
+
         for anims in self.command_animations: # Only one animation at a time
             self.animations[anims].apply(element = self, custom_data = custom_data, request_on_end = self.request_on_end, request_removal_array = self.request_removal_array)
         
@@ -318,6 +326,9 @@ class Element():
     ### Animation manipulation ###
 
     def animation_play(self, *, animation_to_play: str):
+
+        if self.id == "PlD":
+            print(f"Play animation: {animation_to_play}")
 
         if (animation_to_play not in self.animations) or\
            (animation_to_play in self.command_animations):
