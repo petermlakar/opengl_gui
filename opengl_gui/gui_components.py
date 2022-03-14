@@ -197,10 +197,12 @@ class Gui():
 
     def swap_buffers(self):
 
+        glfw.swap_buffers(self.window)
+
         self.frames += 1
         self.dx = self.dy = 0.0
 
-    def window_resize(self):
+    def should_window_resize(self):
 
         if (self.resize_event is not None) and ((time.time() - self.resize_event) >= 0.5):
 
@@ -225,13 +227,13 @@ class Element():
 
         # Default initalizers for vairables
 
-        self.position = [0.0, 0.0] if position is None else position
-        self.offset   = [0.0, 0.0] if offset   is None else offset
-        self.scale    = [1.0, 1.0] if scale    is None else scale
+        self.position = np.array([0.0, 0.0], dtype = np.float32) if position is None else np.array(position, dtype = np.float32)
+        self.offset   = np.array([0.0, 0.0], dtype = np.float32) if offset   is None else np.array(offset, dtype = np.float32)
+        self.scale    = np.array([1.0, 1.0], dtype = np.float32) if scale    is None else np.array(scale, dtype = np.float32)
 
-        self.properties  = np.array([0.99 if depth is None else depth, 1.0], dtype = np.float32)
+        self.properties = np.array([0.99 if depth is None else depth, 1.0], dtype = np.float32)
         self.colour     = np.array([1.0, 1.0, 1.0, 1.0], dtype = np.float32) if colour is None else np.array(colour, dtype = np.float32)
-        self.animations = {}                   if animations is None else animations
+        self.animations = {} if animations is None else animations
 
         self.request_removal_array = []
         self.request_on_end        = []
@@ -1199,8 +1201,8 @@ class DrawerMenu(Element):
         animations: dict = None, 
         shader: str = "default_shader",
         id:     str,
-        position_closed: float,
-        position_opened: float,
+        position_closed: list,
+        position_opened: list,
         on_open:  Callable = None,
         on_close: Callable = None,
         on_grab:  Callable = None):
@@ -1215,18 +1217,13 @@ class DrawerMenu(Element):
             shader = shader,
             id     = id)
 
-        self.position_opened = position_opened
-        self.position_closed = position_closed
+        self.position_opened = np.array(position_opened, dtype = np.float32)
+        self.position_closed = np.array(position_closed, dtype = np.float32)
+    
+        self.v = self.position_opened - self.position_closed
+        self.v_norm = self.v[0]**2 + self.v[1]**2
 
-        self.old_position = self.position[0]
-        self.swap = False
-
-        if self.position_closed >= self.position_opened:
-
-            self.position_closed, self.position_opened = self.position_opened, self.position_closed
-            self.swap = True
-
-        self.opening = self.closing = False
+        self.opening = False
 
         self.open = self.grab = False
         self.open_event_flag  = False
@@ -1234,7 +1231,7 @@ class DrawerMenu(Element):
 
         self.transition_duration = 0.25
         self.transition_position = None
-        self.transition_time     = None
+        self.transition_release_time = None
 
         self.on_grab  = on_grab
         self.on_open  = on_open
@@ -1247,18 +1244,23 @@ class DrawerMenu(Element):
         
         self.check_for_grab(gui = gui)
 
-        if self.grab and gui.dx != 0.0:
+        if self.grab and (gui.dx**2 + gui.dy**2) != 0:
 
-            self.old_position = self.position[0]
+            self.old_position = self.position.copy()
 
-            self.position[0] = self.position[0] + gui.dx
-            self.position[0] = min(max(self.position[0], self.position_closed), self.position_opened)
+            self.position += (self.v[0]*gui.dx + self.v[1]*gui.dy)/(self.v_norm)*self.v
+
+            v_new = (self.position_opened - self.position)/self.v_norm
+            v_new = self.v[0]*v_new[0] + self.v[1]*v_new[1]
+
+            self.position = self.position_opened.copy() if v_new < 0.0 else (self.position_closed.copy() if np.abs(v_new) > 1.0 else self.position)
 
             self.update_geometry(parent = parent)
         elif not self.grab:
             self.apply_motion(parent = parent)
 
         if self.open_event_flag:
+
             if self.on_open is not None and self.open:
                 self.on_open(self, gui)
             elif self.on_close is not None and not self.open:
@@ -1282,60 +1284,47 @@ class DrawerMenu(Element):
                 
                 self.grab = True
 
-                self.opening = self.closing = False
-                self.transition_time = self.transition_position = None
-
-                #gui.mouse_press_event = None # TODO Do this better
+                self.opening = False
+                self.transition_release_time = self.transition_position = None
 
                 self.grab_event_flag = True
             elif not mouse_press_event[0] and self.grab: # Release grab
+
                 self.grab = False
-                total_distance = (self.position_opened - self.position_closed)
+                self.transition_release_time = time.time()
+                self.transition_position = self.position.copy()
 
-                p0 = self.old_position
-                p1 = self.position[0]
+                # Determine if drawer should be closing or opening
+                # after release.
 
-                d0 = abs(self.position_closed - p0)/total_distance
-                d1 = abs(self.position_closed - p1)/total_distance
+                dist_to_open = self.position_opened - self.position
+                dist_to_open = (dist_to_open[0]**2 + dist_to_open[1]**2)/self.v_norm
 
-                if d1 < d0: # Approaching closed position
-                    d2 = abs(self.position_opened - p0)/total_distance
+                dist_to_closed = self.position_closed - self.position
+                dist_to_closed = (dist_to_closed[0]**2 + dist_to_closed[1]**2)/self.v_norm
 
-                    if d2 > 0.10:
-                        self.closing = True
-                    else:
-                        self.opening = True
-                else: # Approaching opened position
-                    
-                    if d0 > 0.10:
-                        self.opening = True
-                    else:
-                        self.closing = True
-
-                if self.closing or self.opening:
-                    self.transition_position = self.position[0]
-                    self.transition_time = time.time()
+                self.opening = dist_to_open < 0.1*0.1 if dist_to_open < dist_to_closed else dist_to_closed > 0.1*0.1
 
     def apply_motion(self, parent) -> None:
         
-        if self.opening or self.closing:
-            t0 = (time.time() - self.transition_time)/self.transition_duration
-            t = sin(t0*pi*0.5)
+        if self.transition_release_time is not None:
+
+            t = (time.time() - self.transition_release_time)/self.transition_duration
+            i = sin(t*pi*0.5)
 
             p = self.position_opened if self.opening else self.position_closed
 
-            self.old_position = self.position[0]
+            self.position = (self.transition_position*(1.0 - i) + p*i).copy()
 
-            self.position[0] = self.transition_position*(1.0 - t) + p*t
-            self.position[0] = min(max(self.position[0], self.position_closed), self.position_opened)
+            if t >= 1.0:
+                
+                self.position = self.position_opened.copy() if self.opening else self.position_closed.copy()
 
-            if t0 >= 1.0:
-                self.position[0] = self.position_opened if self.opening else self.position_closed
-                self.open        = self.opening if not self.swap else not self.opening
+                self.open     = self.opening
                 self.open_event_flag = True
 
-                self.opening = self.closing = False
-                self.transition_position = self.transition_time = None
+                self.opening = False
+                self.transition_position = self.transition_release_time = None
 
             self.update_geometry(parent = parent)
 
@@ -1464,4 +1453,3 @@ class DemoDisplay(Element):
             t.update_geometry(parent = self)
         for t in self.in_transition_video:
             t.update_geometry(parent = self)
-
