@@ -13,7 +13,7 @@ from opengl_gui.gui_shaders import *
 
 class Gui():
 
-    def __init__(self, *,
+    def __init__(self,
         fullscreen: bool = False,
         width:  int = 1920,
         height: int = 1080) -> None:
@@ -172,7 +172,7 @@ class Gui():
     def draw(self):
         glDrawArrays(GL_TRIANGLES, 0, self.number_of_vertices)
 
-    def switch_shader_program(self, *, shader: str):
+    def switch_shader_program(self, shader: str):
 
         if shader != self.active_shader:
             self.active_shader_program = self.shader_pack[shader]
@@ -215,7 +215,7 @@ class Gui():
 
 class Element():
 
-    def __init__(self, *,
+    def __init__(self,
         position: list  = None,
         offset:   list  = None,
         scale:    list  = None,
@@ -267,15 +267,15 @@ class Element():
 
     #######################################################
 
-    def execute(self, *, parent, gui, custom_data) -> None:
+    def execute(self, parent, gui, custom_data) -> None:
         
         for e in self.command_chain:
             e(parent = parent, gui = gui, custom_data = custom_data)
 
-    def element_on_enter(self, *, parent, gui: Gui, custom_data) -> None:
+    def element_on_enter(self, parent, gui: Gui, custom_data) -> None:
         pass
 
-    def element_update(self, *, parent, gui: Gui, custom_data) -> None:
+    def element_update(self, parent, gui: Gui, custom_data) -> None:
 
         for anims in self.command_animations: # Only one animation at a time
             self.animations[anims].apply(element = self, custom_data = custom_data, request_on_end = self.request_on_end, request_removal_array = self.request_removal_array)
@@ -291,10 +291,10 @@ class Element():
         self.request_removal_array.clear()
         self.request_on_end.clear()
 
-    def element_render(self, *, parent, gui: Gui, custom_data) -> None:
+    def element_render(self, parent, gui: Gui, custom_data) -> None:
         pass
 
-    def element_exit(self, *, parent, gui: Gui, custom_data) -> None:
+    def element_exit(self, parent, gui: Gui, custom_data) -> None:
         
         for c in self.dependent_components:
             c.execute(parent = self, gui = gui, custom_data = custom_data)
@@ -303,7 +303,7 @@ class Element():
 
     ### Geometry update functionality ###
 
-    def update_geometry(self, *, parent) -> None:
+    def update_geometry(self, parent) -> None:
 
         topLeft = parent.top if parent is not None else [-1.0, 1.0]
 
@@ -341,15 +341,15 @@ class Element():
         self.position[1] = 0.5
         self.offset[1] = -self.scale[1]
 
-    def set_highlight(self, *, highlight: float) -> None:
+    def set_highlight(self, highlight: float) -> None:
         self.properties[1] = highlight
 
-    def set_depth(self, *, depth: float) -> None:
+    def set_depth(self, depth: float) -> None:
         self.properties[0] = depth
 
     ### Animation manipulation ###
 
-    def animation_play(self, *, animation_to_play: str):
+    def animation_play(self, animation_to_play: str):
 
         if (animation_to_play not in self.animations) or\
            (animation_to_play in self.command_animations):
@@ -358,23 +358,23 @@ class Element():
         self.animations[animation_to_play].play(element = self)
         self.command_animations.append(animation_to_play)
 
-    def animation_stop(self, *, animation_to_stop: str):
+    def animation_stop(self, animation_to_stop: str):
 
         self.command_animations = [x for x in self.command_animations if x != animation_to_stop]
 
     ### Dependent component manipulation ###
 
-    def depends_on(self, *, element) -> None:
+    def depends_on(self, element) -> None:
         element.dependent_components.append(self)
         
 
 class Animation():
 
-    def __init__(self, *,
+    def __init__(self,
         transform: Tuple[str, list],
+        id: str,
         on_end:    Callable = None,
-        duration:  float    = 1.0,
-        id: str):
+        duration:  float    = 1.0):
 
         self.transform = transform
         self.duration  = duration
@@ -384,18 +384,18 @@ class Animation():
         self.start = None
         self.start_initial_values = None
 
-    def apply(self, *, element: Element, custom_data, request_on_end: list, request_removal_array: list) -> None:
+    def apply(self, element: Element, custom_data, request_on_end: list, request_removal_array: list) -> None:
         pass
 
-    def apply_end(self, *, element: Element, custom_data) -> None:
+    def apply_end(self, element: Element, custom_data) -> None:
         pass
 
-    def play(self, *, element: Element) -> None:
+    def play(self, element: Element) -> None:
 
         self.start = time.time()
         self.start_initial_values = getattr(element, self.transform[0]).copy()
 
-    def stop(self, *, element: Element) -> None:
+    def stop(self, element: Element) -> None:
         self.start = None
 
     def interpolate_sin(self, start: list, goal: list, time: float):
@@ -410,10 +410,10 @@ class Animation():
 
 class AnimationScalar(Animation):
 
-    def __init__(self, *, transform: Tuple[str, list], on_end: Callable = None, duration: float = 1, id: str):
+    def __init__(self, transform: Tuple[str, list], id: str, on_end: Callable = None, duration: float = 1):
         super().__init__(transform = transform, on_end = on_end, duration = duration, id = id)
 
-    def apply(self, *, element: Element, custom_data, request_on_end: list, request_removal_array: list) -> None:
+    def apply(self, element: Element, custom_data, request_on_end: list, request_removal_array: list) -> None:
         
         elapsed_time = time.time() - self.start
 
@@ -432,21 +432,21 @@ class AnimationScalar(Animation):
 
             request_removal_array.append(self.id)
     
-    def apply_end(self, *, element: Element, custom_data) -> None:
+    def apply_end(self, element: Element, custom_data) -> None:
         
         setattr(element, self.transform[0], self.transform[1])
         self.start = None
 
 class AnimationList(Animation):
 
-    def __init__(self, *, 
-        transform: Tuple[str, list], 
+    def __init__(self, 
+        transform: Tuple[str, list],
+        id: str,
         on_end:    Callable = None, 
-        duration:  float = 1, 
-        id: str):
+        duration:  float = 1):
         super().__init__(transform = transform, on_end = on_end, duration = duration, id = id)
 
-    def play(self, *, element: Element) -> None:
+    def play(self, element: Element) -> None:
 
         self.start = time.time()
         self.start_initial_values = getattr(element, self.transform[0]).copy()
@@ -454,7 +454,7 @@ class AnimationList(Animation):
         for i in range(0, len(self.transform[1])):
             self.transform[1][i] = self.start_initial_values[i] if self.transform[1][i] is None else self.transform[1][i]
 
-    def apply(self, *, element: Element, custom_data, request_on_end: list, request_removal_array: list) -> None:
+    def apply(self, element: Element, custom_data, request_on_end: list, request_removal_array: list) -> None:
         
         elapsed_time = time.time() - self.start
 
@@ -483,7 +483,7 @@ class AnimationList(Animation):
 
             request_removal_array.append(self.id)
 
-    def apply_end(self, *, element: Element, custom_data) -> None:
+    def apply_end(self, element: Element, custom_data) -> None:
         
         output = getattr(element, self.transform[0])
         i1 = self.transform[1]
@@ -495,12 +495,12 @@ class AnimationList(Animation):
         
 class AnimationListOne(Animation):
 
-    def __init__(self, *, transform: Tuple[str, list], on_end: Callable = None, duration: float = 1, id: str, index: int):
+    def __init__(self, transform: Tuple[str, list], id: str, index: int, on_end: Callable = None, duration: float = 1):
         super().__init__(transform = transform, on_end = on_end, duration = duration, id = id)
 
         self.index = index
 
-    def apply(self, *, element: Element, custom_data, request_on_end: list, request_removal_array: list) -> None:
+    def apply(self, element: Element, custom_data, request_on_end: list, request_removal_array: list) -> None:
         
         elapsed_time = time.time() - self.start
 
@@ -524,7 +524,7 @@ class AnimationListOne(Animation):
 
             request_removal_array.append(self.id)
 
-    def apply_end(self, *, element: Element, custom_data) -> None:
+    def apply_end(self, element: Element, custom_data) -> None:
         
         output = getattr(element, self.transform[0])
         output[self.index] = self.transform[1]
@@ -534,7 +534,7 @@ class AnimationListOne(Animation):
 class Video():
 
     def __init__(
-        self, *, 
+        self, 
         path: str, 
         loop: bool = False):
 
@@ -627,15 +627,15 @@ class Video():
 
 class Container(Element):
 
-    def __init__(self, *,  
-        position: list,
-        offset:   list = None,  
-        scale:    list,
-        depth:    float = None, 
-        colour:   list  = None, 
+    def __init__(self,  
+        position: list, 
+        scale:  list,
+        id:     str,
+        offset: list = None, 
+        depth:  float = None, 
+        colour: list  = None, 
         animations: dict = None, 
-        shader: str = "default_shader",
-        id:     str):
+        shader: str = "default_shader"):
 
         super(Container, self).__init__(
             position = position,
@@ -651,7 +651,7 @@ class Container(Element):
         self.command_chain.append(self.element_render)
         self.command_chain.append(self.element_exit)
 
-    def element_render(self, *, parent, gui: Gui, custom_data) -> None:
+    def element_render(self, parent, gui: Gui, custom_data) -> None:
 
         shader_program = gui.switch_shader_program(shader = self.shader)
 
@@ -665,15 +665,15 @@ class Container(Element):
 
 class Char(Element):
 
-    def __init__(self, *,  
+    def __init__(self,  
         position: list,
-        offset:   list = None,  
         scale:    list,
-        depth:    float = None, 
-        colour:   list  = None,
-        shader: str = "text_shader",
-        id:     str,
-        texture:  int):
+        id: str,
+        texture: int,
+        offset: list = None,
+        depth:  float = None, 
+        colour: list  = None,
+        shader: str = "text_shader"):
 
         super(Char, self).__init__(
             position = position,
@@ -690,7 +690,7 @@ class Char(Element):
 
     #######################################################
 
-    def element_render(self, *, parent, gui: Gui, custom_data) -> None:
+    def element_render(self, parent, gui: Gui, custom_data) -> None:
         
         shader_program = gui.switch_shader_program(shader = self.shader)
         shader_program.uniform_functions["transform"](self.transform)
@@ -707,17 +707,17 @@ class Char(Element):
 class TextField(Element):
 
     def __init__(
-        self, *, 
-        position: list,
-        offset:   list = None, 
+        self, 
+        position:   list,
         text_scale: int,
-        depth:    float = None,
-        colour:   list  = None, 
-        shader:   str = "text_shader",
-        id:       str, 
+        id: str, 
         aspect_ratio: float,
-        update:   Callable = None, 
-        width:    int      = 1920):
+        offset: list = None, 
+        depth:  float = None,
+        colour: list  = None, 
+        shader: str = "text_shader",
+        update: Callable = None, 
+        width:  int      = 1920):
 
         super(TextField, self).__init__(
             position = position,
@@ -806,17 +806,17 @@ class TextField(Element):
 
 class TextureRGB(Element):
 
-    def __init__(self, *, 
-        position: list, 
-        offset:   list = None, 
-        scale: list, 
-        depth: float = None, 
-        animations: dict  = None, 
-        shader: str = "texture_shader", 
+    def __init__(self, 
+        position: list,
+        scale: list,
+        alpha: float,
         id:     str,
         get_texture: Callable,
-        set_once:    bool = False,
-        alpha: float):
+        offset: list  = None, 
+        depth:  float = None, 
+        animations: dict  = None, 
+        shader:   str = "texture_shader", 
+        set_once: bool = False):
 
         super().__init__(
             position = position, 
@@ -840,7 +840,7 @@ class TextureRGB(Element):
 
     ###########################################################
 
-    def element_render(self, *, parent, gui: Gui, custom_data) -> None:
+    def element_render(self, parent, gui: Gui, custom_data) -> None:
         
         shader_program = gui.switch_shader_program(shader = self.shader)
         shader_program.uniform_functions["transform"](self.transform)
@@ -849,7 +849,7 @@ class TextureRGB(Element):
         glBindTexture(GL_TEXTURE_2D, self.texture)
         gui.draw()
 
-    def set_alpha(self, *, alpha: float) -> None:
+    def set_alpha(self, alpha: float) -> None:
         self.properties[1] = alpha
 
     ###########################################################
@@ -901,17 +901,17 @@ class TextureRGB(Element):
 
 class TextureR(Element):
 
-    def __init__(self, *, 
+    def __init__(self, 
         position: list, 
-        offset:   list = None, 
-        scale: list, 
-        depth: float = None,
+        scale:  list, 
         colour: list,
-        animations: dict  = None, 
-        shader: str = "texture_r_shader", 
         id:     str,
         get_texture: Callable,
-        set_once:    bool = False):
+        offset: list  = None, 
+        depth:  float = None,
+        animations: dict  = None, 
+        shader: str = "texture_r_shader", 
+        set_once: bool = False):
 
         super().__init__(
             position = position, 
@@ -932,7 +932,7 @@ class TextureR(Element):
 
         self.command_chain.append(self.texture_initialization)
     
-    def element_render(self, *, parent, gui: Gui, custom_data) -> None:
+    def element_render(self, parent, gui: Gui, custom_data) -> None:
 
         shader_program = gui.switch_shader_program(shader = self.shader)
         shader_program.uniform_functions["transform"](self.transform)
@@ -992,17 +992,17 @@ class TextureR(Element):
 
 class DisplayTexture(Element):
 
-    def __init__(self, *,  
-        position: list,
-        offset:   list = None,  
+    def __init__(self,  
+        position: list, 
         scale:    list,
+        id:     str,
+        get_texture: Callable,
+        offset:   list = None,
         depth:    float = None,
         aspect:   float = 1920.0/1080.0,
         colour:   list  = None, 
         animations: dict = None, 
-        shader: str = "loading_shader",
-        id:     str,
-        get_texture: Callable):
+        shader: str = "loading_shader"):
 
         super(DisplayTexture, self).__init__(
             position = position,
@@ -1028,7 +1028,7 @@ class DisplayTexture(Element):
         self.command_chain.append(self.element_update_stage_0)
         self.command_chain.append(self.element_render_stage_0)
 
-    def element_render_stage_0(self, *, parent, gui: Gui, custom_data) -> None:
+    def element_render_stage_0(self, parent, gui: Gui, custom_data) -> None:
 
         shader_program = gui.switch_shader_program(shader = self.shader)
 
@@ -1043,7 +1043,7 @@ class DisplayTexture(Element):
 
         gui.draw()
 
-    def element_render_stage_1(self, *, parent, gui: Gui, custom_data) -> None:
+    def element_render_stage_1(self, parent, gui: Gui, custom_data) -> None:
 
 
         shader_program = gui.switch_shader_program(shader = self.shader)
@@ -1062,7 +1062,7 @@ class DisplayTexture(Element):
 
         gui.draw()
 
-    def element_update_stage_0(self, *, parent, gui: Gui, custom_data) -> None:
+    def element_update_stage_0(self, parent, gui: Gui, custom_data) -> None:
         
         super().element_update(parent = parent, gui = gui, custom_data = custom_data)
 
@@ -1087,7 +1087,7 @@ class DisplayTexture(Element):
 
         self.command_chain = [self.element_update_stage_1, self.element_render_stage_1, self.element_exit]
 
-    def element_update_stage_1(self, *, parent, gui: Gui, custom_data) -> None:
+    def element_update_stage_1(self, parent, gui: Gui, custom_data) -> None:
 
         super().element_update(parent = parent, gui = gui, custom_data = custom_data)
 
@@ -1111,15 +1111,15 @@ class DisplayTexture(Element):
 
 class Button(Element):
 
-    def __init__(self, *,  
-        position: list,
-        offset:   list = None,  
+    def __init__(self,  
+        position: list, 
         scale:    list,
+        id:     str,
+        offset:   list = None,
         depth:    float = None, 
         colour:   list  = None, 
         animations: dict = None, 
         shader: str = "default_shader",
-        id:     str,
         on_click: Callable = None):
 
         super(Button, self).__init__(
@@ -1141,7 +1141,7 @@ class Button(Element):
         self.command_chain.append(self.element_render)
         self.command_chain.append(self.element_exit)
 
-    def element_update(self, *, parent, gui: Gui, custom_data) -> None:
+    def element_update(self, parent, gui: Gui, custom_data) -> None:
 
         super().element_update(parent = parent, gui = gui, custom_data = custom_data)
 
@@ -1150,7 +1150,7 @@ class Button(Element):
 
         self.check_for_click(gui = gui, custom_data = custom_data)
 
-    def element_render(self, *, parent, gui: Gui, custom_data) -> None:
+    def element_render(self, parent, gui: Gui, custom_data) -> None:
         
         shader_program = gui.switch_shader_program(shader = self.shader)
 
@@ -1160,7 +1160,7 @@ class Button(Element):
 
         gui.draw()
 
-    def check_for_click(self, *, gui: Gui, custom_data) -> None:
+    def check_for_click(self, gui: Gui, custom_data) -> None:
 
         if gui.mouse_press_event is not None:
 
@@ -1187,22 +1187,22 @@ class Button(Element):
 
                     gui.mouse_press_event = None
 
-    def set_colour(self, *, colour: list) -> None:
+    def set_colour(self, colour: list) -> None:
         self.colour = np.array(colour, dtype = np.float32)
 
 class DrawerMenu(Element):
 
-    def __init__(self, *,  
+    def __init__(self,  
         position: list,
-        offset:   list = None,  
         scale:    list,
+        id:       str,
+        position_closed: list,
+        position_opened: list,
+        offset:   list = None,  
         depth:    float = None, 
         colour:   list  = None, 
         animations: dict = None, 
         shader: str = "default_shader",
-        id:     str,
-        position_closed: list,
-        position_opened: list,
         on_open:  Callable = None,
         on_close: Callable = None,
         on_grab:  Callable = None):
@@ -1240,7 +1240,7 @@ class DrawerMenu(Element):
         self.command_chain.append(self.element_update)
         self.command_chain.append(self.element_exit)
 
-    def element_update(self, *, parent, gui: Gui, custom_data) -> None:
+    def element_update(self, parent, gui: Gui, custom_data) -> None:
         
         self.check_for_grab(gui = gui)
 
@@ -1317,7 +1317,7 @@ class DrawerMenu(Element):
             self.position = (self.transition_position*(1.0 - i) + p*i).copy()
 
             if t >= 1.0:
-                
+
                 self.position = self.position_opened.copy() if self.opening else self.position_closed.copy()
 
                 self.open     = self.opening
@@ -1330,14 +1330,14 @@ class DrawerMenu(Element):
 
 class DemoDisplay(Element):
 
-    def __init__(self, *,  
+    def __init__(self,  
         position: list,
-        offset:   list = None,  
         scale:    list,
+        id:       str,
+        offset:   list = None,  
         depth:    float = None, 
         colour:   list  = None, 
-        shader: str = "default_shader",
-        id:     str):
+        shader: str = "default_shader"):
 
         super(DemoDisplay, self).__init__(
             position = position,
@@ -1359,10 +1359,10 @@ class DemoDisplay(Element):
         self.in_transition_demo  = []
         self.in_transition_video = []
 
-    def insert_default(self, *, element: Element):
+    def insert_default(self, element: Element):
         self.default = element
 
-    def insert_active_demo(self, *, active_demo: Element, active_demo_button: Button):
+    def insert_active_demo(self, active_demo: Element, active_demo_button: Button):
 
         self.remove_active_demo()
 
@@ -1371,7 +1371,7 @@ class DemoDisplay(Element):
 
         self.active_demo.animation_play(animation_to_play = "in")
 
-    def insert_active_video(self, *, active_video: Element, active_video_button: Button):
+    def insert_active_video(self, active_video: Element, active_video_button: Button):
 
         self.remove_active_video()
 
@@ -1412,7 +1412,7 @@ class DemoDisplay(Element):
         self.active_video = None
         self.active_video_button = None
 
-    def execute(self, *, parent, gui: Gui, custom_data) -> None:
+    def execute(self, parent, gui: Gui, custom_data) -> None:
         
         shader_program = gui.switch_shader_program(shader = self.shader)
 
@@ -1438,7 +1438,7 @@ class DemoDisplay(Element):
         for t in self.dependent_components:
             t.execute(parent = self, gui = gui, custom_data = custom_data)
 
-    def update_geometry(self, *, parent) -> None:
+    def update_geometry(self, parent) -> None:
 
         super().update_geometry(parent = parent)
 
