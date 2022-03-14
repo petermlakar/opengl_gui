@@ -181,6 +181,36 @@ class Gui():
 
         return self.active_shader_program
 
+    ####
+
+    def poll_events(self):
+
+        glfw.poll_events()
+
+        self.mouse_press_event = self.mouse_press_event_stack.pop(0) if len(self.mouse_press_event_stack) > 0 else None
+
+    def should_window_close(self):
+        return glfw.window_should_close(self.window)
+
+    def clear_screen(self):
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+
+    def swap_buffers(self):
+
+        self.frames += 1
+        self.dx = self.dy = 0.0
+
+    def window_resize(self):
+
+        if (self.resize_event is not None) and ((time.time() - self.resize_event) >= 0.5):
+
+            glViewport(0, 0, self.width, self.height)
+            self.resize_event = None
+
+            return True
+
+        return False
+
 class Element():
 
     def __init__(self, *,
