@@ -136,9 +136,8 @@ class Gui():
         if self.y_pos_old is None:
             self.y_pos_old = self.y_pos
 
-
-        self.dx = (self.x_pos - self.x_pos_old)/self.window_aspect_ratio
-        self.dy =  self.y_pos - self.y_pos_old
+        self.dx =  (self.x_pos - self.x_pos_old)/self.window_aspect_ratio
+        self.dy = -(self.y_pos - self.y_pos_old)
 
         self.x_pos_old = self.x_pos
         self.y_pos_old = self.y_pos
@@ -1267,9 +1266,12 @@ class DrawerMenu(Element):
                 self.on_close(self, gui)
 
             self.open_event_flag = False
+
         elif self.grab_event_flag:
 
-            self.on_grab(self, gui)
+            if self.on_grab is not None:
+                self.on_grab(self, gui)
+
             self.grab_event_flag = False
 
     def check_for_grab(self, gui: Gui) -> None:
@@ -1280,7 +1282,7 @@ class DrawerMenu(Element):
 
             inside = self.is_inside(mouse_press_event[1], mouse_press_event[2])
 
-            if inside and mouse_press_event[0]:          # Grabbed
+            if inside and mouse_press_event[0]: # Grabbed
                 
                 self.grab = True
 
@@ -1297,13 +1299,15 @@ class DrawerMenu(Element):
                 # Determine if drawer should be closing or opening
                 # after release.
 
+                d = 0.1**2
+
                 dist_to_open = self.position_opened - self.position
                 dist_to_open = (dist_to_open[0]**2 + dist_to_open[1]**2)/self.v_norm
 
                 dist_to_closed = self.position_closed - self.position
                 dist_to_closed = (dist_to_closed[0]**2 + dist_to_closed[1]**2)/self.v_norm
 
-                self.opening = dist_to_open < 0.1*0.1 if dist_to_open < dist_to_closed else dist_to_closed > 0.1*0.1
+                self.opening = dist_to_open < d if self.open else dist_to_closed > d
 
     def apply_motion(self, parent) -> None:
         
