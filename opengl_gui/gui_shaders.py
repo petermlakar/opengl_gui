@@ -256,13 +256,13 @@ class CircleShader(DefaultShader):
             {
                 float inside = fragPosition[0]*fragPosition[0] + fragPosition[1]*fragPosition[1];
                 float alpha0 = 1.0f - smoothstep(1.0 - fwidth(inside), 1.0, inside);
-                float alpha1 = smoothstep(0.8 - fwidth(inside), 0.8, inside);
+                //float alpha1 = smoothstep(0.8 - fwidth(inside), 0.8, inside);
 
                 fragColour = colour;
                 fragColour[0] = clamp(fragColour[0]*highlight, 0.0, 1.0);
                 fragColour[1] = clamp(fragColour[1]*highlight, 0.0, 1.0);
                 fragColour[2] = clamp(fragColour[2]*highlight, 0.0, 1.0);
-                fragColour[3] = alpha0*alpha1;
+                fragColour[3] = alpha0;
             }
         """
 

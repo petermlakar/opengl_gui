@@ -712,6 +712,7 @@ class TextField(Element):
         id: str, 
         aspect_ratio: float,
         offset: list = None, 
+        animations: dict = None,
         depth:  float = None,
         colour: list  = None, 
         shader: str = "text_shader",
@@ -725,6 +726,7 @@ class TextField(Element):
             depth    = depth,
             colour   = colour,
             shader = shader,
+            animations = animations,
             id     = id)
 
         self.update = update
@@ -1176,7 +1178,8 @@ class Button(Element):
                     self.mouse_click_count += 1
                     self.mouse_press = False
 
-                    self.on_click(self, gui, custom_data)
+                    if self.on_click is not None:
+                        self.on_click(self, gui, custom_data)
 
                 gui.mouse_press_event = None
             else:
@@ -1457,3 +1460,92 @@ class DemoDisplay(Element):
             t.update_geometry(parent = self)
         for t in self.in_transition_video:
             t.update_geometry(parent = self)
+
+class Circle(Element):
+
+    def __init__(self,  
+        position: list, 
+        scale:    list,
+        id: str,
+        offset:   list = None,
+        depth:    float = None, 
+        colour:   list  = None, 
+        animations: dict = None, 
+        shader: str = "circle_shader"):
+
+        super(Circle, self).__init__(
+            position = position,
+            offset   = offset,
+            scale    = scale,
+            depth    = depth,
+            colour   = colour,
+            animations = animations,
+            shader = shader,
+            id     = id)
+
+    def execute(self, parent, gui: Gui, custom_data):
+
+        shader_program = gui.switch_shader_program(shader = self.shader)
+
+        shader_program.uniform_functions["transform"](self.transform)
+        shader_program.uniform_functions["properties"](self.properties)
+        shader_program.uniform_functions["colour"](self.colour)
+
+        gui.draw()
+
+class RangeSlider(Element):
+
+    def __init__(self,  
+        position: list, 
+        scale:    list,
+        range_bottom: int,
+        range_top:    int,
+        aspect_ratio: float,
+        id: str,
+        offset:   list = None,
+        depth:    float = None, 
+        colour:   list  = None, 
+        animations: dict = None, 
+        shader: str = "default_shader",
+        on_select: Callable = None):
+
+        super(RangeSlider, self).__init__(
+            position = position,
+            offset   = offset,
+            scale    = scale,
+            depth    = depth,
+            colour   = colour,
+            animations = animations,
+            shader = shader,
+            id     = id)
+
+        self.range_top = range_top
+        self.range_bottom = range_bottom
+        self.selected_value = (range_top + range_bottom)*0.5
+
+        self.on_select = on_select
+
+        self.circle = Circle(
+            position = [0.0, 0.0],
+            scale    = [scale[0]*0.3/aspect_ratio, scale[0]*0.3],
+            colour   = [1.0, 1.0, 1.0, 1.0],
+            id = "slider_circle")
+
+        self.circle.center_x()
+        self.circle.center_y()
+
+        self.circle.depends_on(element = self)
+
+    def execute(self, parent, gui: Gui, custom_data):
+        
+        shader_program = gui.switch_shader_program(shader = self.shader)
+
+        shader_program.uniform_functions["transform"](self.transform)
+        shader_program.uniform_functions["properties"](self.properties)
+        shader_program.uniform_functions["colour"](self.colour)
+
+        gui.draw()
+
+        for t in self.dependent_components:
+            t.execute(parent = self, gui = gui, custom_data = custom_data)
+
