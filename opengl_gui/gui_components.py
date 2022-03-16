@@ -258,6 +258,7 @@ class Element():
         ####
 
         self.command_chain = []
+        self.command_chain_singleton = []
         self.command_animations = []
 
         ####
@@ -268,6 +269,11 @@ class Element():
 
     def execute(self, parent, gui, custom_data) -> None:
         
+        for e in self.command_chain_singleton:
+            e(parent = parent, gui = gui, custom_data = custom_data)
+
+        self.command_chain_singleton.clear()
+
         for e in self.command_chain:
             e(parent = parent, gui = gui, custom_data = custom_data)
 
@@ -330,12 +336,12 @@ class Element():
     def get_aspect_ratio(self) -> float:
         return self.scale[0]/self.scale[1]
 
-    def center_x(self):
+    def center_x(self) -> None:
 
         self.position[0] = 0.5
         self.offset[0] = -self.scale[0]
 
-    def center_y(self):
+    def center_y(self) -> None:
 
         self.position[1] = 0.5
         self.offset[1] = -self.scale[1]
@@ -345,6 +351,9 @@ class Element():
 
     def set_depth(self, depth: float) -> None:
         self.properties[0] = depth
+
+    def set_colour(self, colour: list) -> None:
+        self.colour = np.array(colour, dtype = np.float32)
 
     ### Animation manipulation ###
 
@@ -788,8 +797,11 @@ class TextField(Element):
             
             t.depends_on(element = self)
 
-        self.update_geometry(parent = None)
+        self.command_chain_singleton.append(self.element_update)
 
+    def element_update(self, parent, gui: Gui, custom_data):
+        self.update_geometry(parent = parent)
+        
     #######################################################
 
     def is_inside(self, x: float, y: float) -> bool:
@@ -1189,9 +1201,6 @@ class Button(Element):
 
                     gui.mouse_press_event = None
 
-    def set_colour(self, colour: list) -> None:
-        self.colour = np.array(colour, dtype = np.float32)
-
 class DrawerMenu(Element):
 
     def __init__(self,  
@@ -1502,12 +1511,13 @@ class RangeSlider(Element):
         range_top:    int,
         aspect_ratio: float,
         id: str,
+        on_slide: Callable = None,
+        on_select: Callable = None,
         offset:   list = None,
         depth:    float = None, 
         colour:   list  = None, 
         animations: dict = None, 
-        shader: str = "default_shader",
-        on_select: Callable = None):
+        shader: str = "default_shader"):
 
         super(RangeSlider, self).__init__(
             position = position,
@@ -1523,6 +1533,7 @@ class RangeSlider(Element):
         self.range_bottom = range_bottom
         self.selected_value = (range_top + range_bottom)*0.5
 
+        self.on_slide  = on_slide
         self.on_select = on_select
 
         self.circle = Circle(
@@ -1536,7 +1547,49 @@ class RangeSlider(Element):
 
         self.circle.depends_on(element = self)
 
-    def execute(self, parent, gui: Gui, custom_data):
+        self.mouse_press = False
+        self.mouse_click_count = 0
+
+        self.command_chain.append(self.element_update)
+        self.command_chain.append(self.element_render)
+        self.command_chain.append(self.element_exit)
+
+    def element_update(self, parent, gui: Gui, custom_data) -> None:
+
+        if gui.mouse_press_event is not None:
+
+            mouse_press_event = gui.mouse_press_event
+
+            inside = self.circle.is_inside(mouse_press_event[1], mouse_press_event[2])
+
+            if inside and mouse_press_event[0]:
+
+                self.mouse_press = True
+
+                # Consume event
+                gui.mouse_press_event = None
+            elif self.mouse_press and not mouse_press_event[0]:
+
+                self.mouse_press = False
+                self.mouse_click_count += 1
+
+                # Consume event
+                gui.mouse_press_event = None
+
+                if self.on_select is not None:
+                    self.on_select(self, custom_data)
+            
+        if self.mouse_press:
+            
+            self.circle.position[0] = np.clip(self.circle.position[0] + gui.dx/self.scale[0], 0.0, 1.0)
+            self.circle.update_geometry(parent = self)
+
+            self.selected_value = self.range_bottom*(1.0 - self.circle.position[0]) + self.range_top*self.circle.position[0]
+
+            if self.on_slide is not None:
+                self.on_slide(self, custom_data)
+            
+    def element_render(self, parent, gui: Gui, custom_data):
         
         shader_program = gui.switch_shader_program(shader = self.shader)
 
@@ -1545,7 +1598,4 @@ class RangeSlider(Element):
         shader_program.uniform_functions["colour"](self.colour)
 
         gui.draw()
-
-        for t in self.dependent_components:
-            t.execute(parent = self, gui = gui, custom_data = custom_data)
 
