@@ -1511,8 +1511,9 @@ class RangeSlider(Element):
         range_top:    int,
         aspect_ratio: float,
         id: str,
-        on_slide: Callable = None,
+        on_value_update: Callable = None,
         on_select: Callable = None,
+        get_range: Callable = None,
         offset:   list = None,
         depth:    float = None, 
         colour:   list  = None, 
@@ -1533,8 +1534,11 @@ class RangeSlider(Element):
         self.range_bottom = range_bottom
         self.selected_value = (range_top + range_bottom)*0.5
 
-        self.on_slide  = on_slide
+        self.on_value_update  = on_value_update
         self.on_select = on_select
+        self.get_range = get_range
+
+        self.slider_lock = False
 
         self.circle = Circle(
             position = [0.0, 0.0],
@@ -1550,9 +1554,23 @@ class RangeSlider(Element):
         self.mouse_press = False
         self.mouse_click_count = 0
 
-        self.command_chain.append(self.element_update)
-        self.command_chain.append(self.element_render)
-        self.command_chain.append(self.element_exit)
+        self.command_chain = [self.element_update, self.element_render, self.element_exit] if get_range is None else [self.get_range_update, self.element_update, self.element_render, self.element_exit]
+
+    def get_range_update(self, parent, gui: Gui, custom_data) -> None:
+        
+        range_values = self.get_range(self, custom_data)
+
+        if range_values is None:
+            pass
+        else:
+            self.range_bottom = range_values[0]
+            self.range_top    = range_values[1]
+            self.selected_value = self.range_bottom*(1.0 - self.circle.position[0]) + self.range_top*self.circle.position[0]
+
+            if self.on_value_update is not None:
+                self.on_value_update(self, custom_data)
+
+            self.command_chain = [self.element_update, self.element_render, self.element_exit]
 
     def element_update(self, parent, gui: Gui, custom_data) -> None:
 
@@ -1579,15 +1597,15 @@ class RangeSlider(Element):
                 if self.on_select is not None:
                     self.on_select(self, custom_data)
             
-        if self.mouse_press:
+        if self.mouse_press and not self.slider_lock:
             
             self.circle.position[0] = np.clip(self.circle.position[0] + gui.dx/self.scale[0], 0.0, 1.0)
             self.circle.update_geometry(parent = self)
 
             self.selected_value = self.range_bottom*(1.0 - self.circle.position[0]) + self.range_top*self.circle.position[0]
 
-            if self.on_slide is not None:
-                self.on_slide(self, custom_data)
+            if self.on_value_update is not None:
+                self.on_value_update(self, custom_data)
             
     def element_render(self, parent, gui: Gui, custom_data):
         
@@ -1598,4 +1616,10 @@ class RangeSlider(Element):
         shader_program.uniform_functions["colour"](self.colour)
 
         gui.draw()
+
+    def lock(self):
+        self.slider_lock = True
+    
+    def unlock(self):
+        self.slider_lock = False
 
