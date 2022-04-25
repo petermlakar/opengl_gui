@@ -39,7 +39,7 @@ def load_font(path = "/home/demoos/Downloads/Metropolis-SemiBold.otf", size = 64
     characters = list(string.ascii_lowercase) + \
                 list(string.ascii_uppercase) + \
                 list(string.digits) + \
-                ['č', 'š', 'ž', ':', '-', '#', '.', ',', '!', '?', 0xf008]
+                ['Č', 'Š', 'Ž', 'č', 'š', 'ž', ':', '-', '#', '.', ',', '!', '?', 0xf008]
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
 

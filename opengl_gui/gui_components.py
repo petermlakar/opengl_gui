@@ -50,6 +50,10 @@ class Gui():
 
         ####
 
+        self.interation_context = None
+
+        ####
+
         self.window_values = glfw.get_video_mode(glfw.get_primary_monitor())
         self.window_width  = self.window_values.size.width
         self.window_height = self.window_values.size.height
@@ -125,6 +129,8 @@ class Gui():
 
         glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 16, ctypes.c_void_p(8))
         glEnableVertexAttribArray(1)
+
+    ####
 
     def mouse_position_callback(self, window, x_pos, y_pos) -> None:
 
@@ -211,6 +217,22 @@ class Gui():
             return True
 
         return False
+
+    ####
+
+    def release_interaction_context(self, element):
+
+        if self.interation_context == element:
+            self.interation_context = None  
+
+    def grab_interaction_context(self, element):
+
+        if self.interation_context is None:
+            self.interation_context = element
+
+    def interaction_context_free(self, element):
+        return self.interation_context is None or (self.interation_context == element)
+        
 
 class Element():
 
@@ -330,6 +352,9 @@ class Element():
 
     ### Visual properties manipulation ###
 
+    def is_interactable(self):
+        return False
+
     def is_inside(self, x: float, y: float) -> bool:
         return (x >= self.top[0]) and (y <= self.top[1]) and (x <= self.bot[0]) and (y >= self.bot[1])
     
@@ -374,7 +399,26 @@ class Element():
 
     def depends_on(self, element) -> None:
         element.dependent_components.append(self)
+    
+    def get_all_dependent_components(self):
         
+        output     = []
+        to_process = []
+        for c in self.dependent_components:
+            to_process.append(c)
+
+        while len(to_process) > 0:
+
+            c = to_process.pop(0)
+            output.append(c)
+
+            for cc in c.dependent_components:
+                to_process.append(cc)
+
+        return output
+
+        
+
 
 class Animation():
 
@@ -1175,31 +1219,38 @@ class Button(Element):
 
     def check_for_click(self, gui: Gui, custom_data) -> None:
 
-        if gui.mouse_press_event is not None:
+        if gui.mouse_press_event is not None and gui.interaction_context_free(self):
 
             mouse_press_event = gui.mouse_press_event
-
             inside = self.is_inside(mouse_press_event[1], mouse_press_event[2])
 
             if inside:
 
                 if mouse_press_event[0]:
+
+                    gui.grab_interaction_context(self)
                     self.mouse_press = True
+
                 elif not mouse_press_event[0] and self.mouse_press:
 
                     self.mouse_click_count += 1
                     self.mouse_press = False
 
+                    gui.release_interaction_context(self)
+
                     if self.on_click is not None:
                         self.on_click(self, gui, custom_data)
 
                 gui.mouse_press_event = None
-            else:
 
-                if self.mouse_press and mouse_press_event[0]:
-                    self.mouse_press = False
+            elif self.mouse_press and not mouse_press_event[0]:
 
-                    gui.mouse_press_event = None
+                self.mouse_press = False
+                gui.mouse_press_event = None
+                gui.release_interaction_context(self)
+
+    def is_interactable(self):
+        return True
 
 class DrawerMenu(Element):
 
@@ -1288,11 +1339,14 @@ class DrawerMenu(Element):
 
     def check_for_grab(self, gui: Gui) -> None:
 
-        if gui.mouse_press_event is not None:
+        if gui.mouse_press_event is not None and gui.interaction_context_free(self):
 
             mouse_press_event = gui.mouse_press_event
 
-            inside = self.is_inside(mouse_press_event[1], mouse_press_event[2])
+            term_0 = self.is_inside(mouse_press_event[1], mouse_press_event[2])
+            term_1 = [(c.is_inside(mouse_press_event[1], mouse_press_event[2])) and c.is_interactable() for c in self.get_all_dependent_components()]
+
+            inside = term_0 and (not any(term_1))
 
             if inside and mouse_press_event[0]: # Grabbed
                 
@@ -1302,6 +1356,9 @@ class DrawerMenu(Element):
                 self.transition_release_time = self.transition_position = None
 
                 self.grab_event_flag = True
+
+                gui.grab_interaction_context(self)
+
             elif not mouse_press_event[0] and self.grab: # Release grab
 
                 self.grab = False
@@ -1320,6 +1377,8 @@ class DrawerMenu(Element):
                 dist_to_closed = (dist_to_closed[0]**2 + dist_to_closed[1]**2)/self.v_norm
 
                 self.opening = dist_to_open < d if self.open else dist_to_closed > d
+
+                gui.release_interaction_context(self)
 
     def apply_motion(self, parent) -> None:
         
@@ -1343,6 +1402,9 @@ class DrawerMenu(Element):
                 self.transition_position = self.transition_release_time = None
 
             self.update_geometry(parent = parent)
+
+    def is_interactable(self):
+        return True
 
 class DemoDisplay(Element):
 
@@ -1492,8 +1554,10 @@ class Circle(Element):
             shader = shader,
             id     = id)
 
-    def execute(self, parent, gui: Gui, custom_data):
+        self.command_chain = [self.element_update, self.element_render]
 
+    def element_render(self, parent, gui: Gui, custom_data) -> None:
+        
         shader_program = gui.switch_shader_program(shader = self.shader)
 
         shader_program.uniform_functions["transform"](self.transform)
@@ -1501,6 +1565,9 @@ class Circle(Element):
         shader_program.uniform_functions["colour"](self.colour)
 
         gui.draw()
+
+    def is_interactable(self):
+        return True
 
 class RangeSlider(Element):
 
@@ -1574,7 +1641,7 @@ class RangeSlider(Element):
 
     def element_update(self, parent, gui: Gui, custom_data) -> None:
 
-        if gui.mouse_press_event is not None:
+        if gui.mouse_press_event is not None and gui.interaction_context_free(self):
 
             mouse_press_event = gui.mouse_press_event
 
@@ -1583,16 +1650,18 @@ class RangeSlider(Element):
             if inside and mouse_press_event[0]:
 
                 self.mouse_press = True
-
-                # Consume event
                 gui.mouse_press_event = None
-            elif self.mouse_press and not mouse_press_event[0]:
+
+                gui.grab_interaction_context(self)
+
+            elif (inside and not mouse_press_event[0]) or (self.mouse_press and not mouse_press_event[0]):
 
                 self.mouse_press = False
                 self.mouse_click_count += 1
 
-                # Consume event
                 gui.mouse_press_event = None
+
+                gui.release_interaction_context(self)
 
                 if self.on_select is not None:
                     self.on_select(self, custom_data)
@@ -1622,4 +1691,3 @@ class RangeSlider(Element):
     
     def unlock(self):
         self.slider_lock = False
-
